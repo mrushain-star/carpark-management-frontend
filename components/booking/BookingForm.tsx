@@ -14,7 +14,15 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
+import { Calendar } from "@/components/ui/calendar"
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover"
 import { Separator } from "@/components/ui/separator"
+import { format } from "date-fns"
+import { cn } from "@/lib/utils"
 import {
   RiCarLine,
   RiParkingBoxLine,
@@ -25,6 +33,7 @@ import {
   RiCoinLine,
   RiLoader4Line,
   RiBankCardLine,
+  RiCalendarLine,
 } from "@remixicon/react"
 
 type Vehicle = {
@@ -54,11 +63,10 @@ function toTimeLocal(date: Date): string {
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`
 }
 
-function getDatetimeFromTimeStr(timeStr: string, isExit: boolean, entryDate?: Date): Date {
-  const now = new Date()
-  if (!timeStr) return now
+function getDatetimeFromTimeStr(timeStr: string, isExit: boolean, baseDate: Date, entryDate?: Date): Date {
+  if (!timeStr) return new Date(baseDate)
   const [hours, minutes] = timeStr.split(":").map(Number)
-  const d = new Date(now.getFullYear(), now.getMonth(), now.getDate(), hours, minutes)
+  const d = new Date(baseDate.getFullYear(), baseDate.getMonth(), baseDate.getDate(), hours, minutes)
   
   if (isExit && entryDate && d <= entryDate) {
     d.setDate(d.getDate() + 1)
@@ -108,6 +116,7 @@ export default function BookingForm({
   const [newVehicleNumber, setNewVehicleNumber] = useState("")
 
   // Time state
+  const [bookingDate, setBookingDate] = useState<Date | undefined>(now)
   const [entryTime, setEntryTime] = useState(defaultEntry)
   const [exitTime, setExitTime] = useState(defaultExit)
   const [timeError, setTimeError] = useState<string | null>(null)
@@ -125,9 +134,9 @@ export default function BookingForm({
 
   // Check slot availability whenever times change
   useEffect(() => {
-    if (!entryTime || !exitTime) return
-    const entry = getDatetimeFromTimeStr(entryTime, false)
-    const exit = getDatetimeFromTimeStr(exitTime, true, entry)
+    if (!bookingDate || !entryTime || !exitTime) return
+    const entry = getDatetimeFromTimeStr(entryTime, false, bookingDate)
+    const exit = getDatetimeFromTimeStr(exitTime, true, bookingDate, entry)
     if (exit <= entry) return
 
     let isMounted = true
@@ -164,8 +173,9 @@ export default function BookingForm({
   function handleExitChange(value: string) {
     setExitTime(value)
     setTimeError(null)
-    const entry = getDatetimeFromTimeStr(entryTime, false)
-    const exit = getDatetimeFromTimeStr(value, true, entry)
+    if (!bookingDate) return
+    const entry = getDatetimeFromTimeStr(entryTime, false, bookingDate)
+    const exit = getDatetimeFromTimeStr(value, true, bookingDate, entry)
     const ms = exit.getTime() - entry.getTime()
     if (ms <= 0) setTimeError("Exit time must be after entry time")
     else if (ms < 30 * 60 * 1000) setTimeError("Minimum duration is 30 minutes")
@@ -191,14 +201,20 @@ export default function BookingForm({
     setIsSubmitting(true)
 
     try {
+      if (!bookingDate) {
+        setError("Please select a date")
+        setIsSubmitting(false)
+        return
+      }
+
       // Step 1: Create booking with pending_payment status
       const formData = new FormData()
       formData.set("vehicle_number", vehicleNumber.toUpperCase())
       formData.set("vehicle_id", vehicleMode === "existing" ? selectedVehicleId : "")
       formData.set("slot_id", String(selectedSlotId))
 
-      const actualEntry = getDatetimeFromTimeStr(entryTime, false)
-      const actualExit = getDatetimeFromTimeStr(exitTime, true, actualEntry)
+      const actualEntry = getDatetimeFromTimeStr(entryTime, false, bookingDate)
+      const actualExit = getDatetimeFromTimeStr(exitTime, true, bookingDate, actualEntry)
       formData.set("entry_time", actualEntry.toISOString())
       formData.set("exit_time", actualExit.toISOString())
 
@@ -239,8 +255,8 @@ export default function BookingForm({
     }
   }
 
-  const actualEntry = entryTime ? getDatetimeFromTimeStr(entryTime, false) : undefined
-  const actualExit = (entryTime && exitTime) ? getDatetimeFromTimeStr(exitTime, true, actualEntry) : undefined
+  const actualEntry = (bookingDate && entryTime) ? getDatetimeFromTimeStr(entryTime, false, bookingDate) : undefined
+  const actualExit = (bookingDate && entryTime && exitTime) ? getDatetimeFromTimeStr(exitTime, true, bookingDate, actualEntry) : undefined
   
   const duration = actualEntry && actualExit ? formatDuration(actualEntry.toISOString(), actualExit.toISOString()) : ""
   const cost = actualEntry && actualExit ? calcCost(actualEntry.toISOString(), actualExit.toISOString()) : 0
@@ -401,6 +417,40 @@ export default function BookingForm({
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="space-y-1.5">
+                <Label>Booking Date</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant={"outline"}
+                      className={cn(
+                        "w-full justify-start text-left font-normal",
+                        !bookingDate && "text-muted-foreground"
+                      )}
+                    >
+                      <RiCalendarLine className="mr-2 h-4 w-4" />
+                      {bookingDate ? format(bookingDate, "PPP") : <span>Pick a date</span>}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      selected={bookingDate}
+                      onSelect={(date) => {
+                        setBookingDate(date)
+                        setTimeError(null)
+                      }}
+                      initialFocus
+                      disabled={(date) => {
+                        const today = new Date()
+                        today.setHours(0, 0, 0, 0)
+                        return date < today
+                      }}
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <Label htmlFor="entry-time">Entry Time</Label>
