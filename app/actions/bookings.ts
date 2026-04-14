@@ -1,7 +1,6 @@
 "use server"
 
 import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
 
 const RATE_PER_HOUR = 200
 
@@ -63,7 +62,8 @@ export async function createBooking(formData: FormData) {
       exit_time: exitTime,
       duration_hours: durationHours,
       estimated_cost: estimatedCost,
-      status: "upcoming",
+      status: "pending_payment",
+      payment_status: "unpaid",
     })
     .select()
     .single()
@@ -75,5 +75,5 @@ export async function createBooking(formData: FormData) {
     return { error: error.message }
   }
 
-  redirect(`/dashboard/booking/confirmation?id=${booking.id}`)
+  return { bookingId: booking.id }
 }

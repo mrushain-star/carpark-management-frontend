@@ -10,6 +10,7 @@ import {
   RiParkingBoxLine,
   RiTimeLine,
   RiCoinLine,
+  RiBankCardLine,
 } from "@remixicon/react"
 
 type BookingWithSlot = {
@@ -19,7 +20,8 @@ type BookingWithSlot = {
   exit_time: string
   duration_hours: number
   estimated_cost: number
-  status: "upcoming" | "active" | "completed" | "cancelled"
+  status: "pending_payment" | "upcoming" | "active" | "completed" | "cancelled"
+  payment_status: string
   parking_slots: { slot_name: string } | null
 }
 
@@ -43,6 +45,7 @@ function formatDuration(hours: number) {
 }
 
 const STATUS_STYLES: Record<string, string> = {
+  pending_payment: "bg-amber-500/10 text-amber-600 dark:text-amber-400",
   upcoming: "bg-primary/10 text-primary",
   active: "bg-green-500/10 text-green-600 dark:text-green-400",
   completed: "bg-muted text-muted-foreground",
@@ -150,17 +153,39 @@ export default async function DashboardPage() {
                                 maximumFractionDigits: 0,
                               })}
                             </span>
+                            {booking.payment_status === "paid" && (
+                              <>
+                                <span className="text-muted-foreground/40">·</span>
+                                <span className="flex items-center gap-1 text-green-600 dark:text-green-400">
+                                  <RiBankCardLine className="h-3 w-3" />
+                                  Paid
+                                </span>
+                              </>
+                            )}
                           </div>
                         </div>
                       </div>
-                      <span
-                        className={[
-                          "shrink-0 px-2 py-0.5 text-xs font-medium",
-                          STATUS_STYLES[booking.status] || STATUS_STYLES.completed,
-                        ].join(" ")}
-                      >
-                        {booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
-                      </span>
+                      <div className="flex flex-col items-end gap-1.5">
+                        <span
+                          className={[
+                            "shrink-0 px-2 py-0.5 text-xs font-medium",
+                            STATUS_STYLES[booking.status] || STATUS_STYLES.completed,
+                          ].join(" ")}
+                        >
+                          {booking.status === "pending_payment"
+                            ? "Awaiting Payment"
+                            : booking.status.charAt(0).toUpperCase() + booking.status.slice(1)}
+                        </span>
+                        {booking.status === "pending_payment" && (
+                          <a
+                            href={`/api/checkout/retry?id=${booking.id}`}
+                            className="flex items-center gap-1 rounded px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/10 transition-colors"
+                          >
+                            <RiBankCardLine className="h-3 w-3" />
+                            Pay Now
+                          </a>
+                        )}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>

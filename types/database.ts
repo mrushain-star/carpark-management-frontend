@@ -22,8 +22,10 @@ export type Database = {
           estimated_cost: number
           exit_time: string
           id: string
+          payment_status: string
           slot_id: number
           status: string
+          stripe_session_id: string | null
           user_id: string
           vehicle_id: string | null
           vehicle_number: string
@@ -35,8 +37,10 @@ export type Database = {
           estimated_cost: number
           exit_time: string
           id?: string
+          payment_status?: string
           slot_id: number
           status?: string
+          stripe_session_id?: string | null
           user_id: string
           vehicle_id?: string | null
           vehicle_number: string
@@ -48,8 +52,10 @@ export type Database = {
           estimated_cost?: number
           exit_time?: string
           id?: string
+          payment_status?: string
           slot_id?: number
           status?: string
+          stripe_session_id?: string | null
           user_id?: string
           vehicle_id?: string | null
           vehicle_number?: string

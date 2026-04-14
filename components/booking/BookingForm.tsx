@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useFormStatus } from "react-dom"
 import { createClient } from "@/lib/supabase/client"
 import { createBooking } from "@/app/actions/bookings"
 import { Button } from "@/components/ui/button"
@@ -25,6 +24,7 @@ import {
   RiCheckboxCircleLine,
   RiCoinLine,
   RiLoader4Line,
+  RiBankCardLine,
 } from "@remixicon/react"
 
 type Vehicle = {
@@ -121,6 +121,7 @@ export default function BookingForm({
 
   // Form
   const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Check slot availability whenever times change
   useEffect(() => {
@@ -129,20 +130,30 @@ export default function BookingForm({
     const exit = getDatetimeFromTimeStr(exitTime, true, entry)
     if (exit <= entry) return
 
-    setCheckingSlots(true)
-    setSelectedSlotId(null)
+    let isMounted = true
 
-    const supabase = createClient()
-    supabase
-      .rpc("get_available_slots", {
+    async function checkAvailability() {
+      setCheckingSlots(true)
+      setSelectedSlotId(null)
+
+      const supabase = createClient()
+      const { data } = await supabase.rpc("get_available_slots", {
         p_entry_time: entry.toISOString(),
         p_exit_time: exit.toISOString(),
       })
-      .then(({ data }) => {
+
+      if (isMounted) {
         const availableIds = new Set((data || []).map((s: { id: number }) => s.id))
         setSlots(ALL_SLOTS.map((s) => ({ ...s, available: availableIds.has(s.id) })))
         setCheckingSlots(false)
-      })
+      }
+    }
+
+    checkAvailability()
+
+    return () => {
+      isMounted = false
+    }
   }, [entryTime, exitTime])
 
   function handleEntryChange(value: string) {
@@ -161,43 +172,71 @@ export default function BookingForm({
     else if (ms > 24 * 60 * 60 * 1000) setTimeError("Maximum duration is 24 hours")
   }
 
-  function handleSubmit(e: React.FormEvent) {
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault()
     setError(null)
+
     const vehicleNumber =
       vehicleMode === "new" ? newVehicleNumber.trim() : selectedVehicleNumber
     if (!vehicleNumber) {
-      e.preventDefault()
       setError("Please select or enter a vehicle number")
       return
     }
     if (!selectedSlotId) {
-      e.preventDefault()
       setError("Please select a parking slot")
       return
     }
-    if (timeError) {
-      e.preventDefault()
-      return
-    }
-  }
+    if (timeError) return
 
-  function SubmitButton() {
-    const { pending } = useFormStatus()
-    const vehicleNumber =
-      vehicleMode === "new" ? newVehicleNumber.trim() : selectedVehicleNumber
-    const disabled = pending || !!timeError || !selectedSlotId || !vehicleNumber || checkingSlots
-    return (
-      <Button type="submit" className="w-full" disabled={disabled}>
-        {pending ? (
-          <>
-            <RiLoader4Line className="mr-2 h-4 w-4 animate-spin" />
-            Confirming…
-          </>
-        ) : (
-          "Confirm Booking"
-        )}
-      </Button>
-    )
+    setIsSubmitting(true)
+
+    try {
+      // Step 1: Create booking with pending_payment status
+      const formData = new FormData()
+      formData.set("vehicle_number", vehicleNumber.toUpperCase())
+      formData.set("vehicle_id", vehicleMode === "existing" ? selectedVehicleId : "")
+      formData.set("slot_id", String(selectedSlotId))
+
+      const actualEntry = getDatetimeFromTimeStr(entryTime, false)
+      const actualExit = getDatetimeFromTimeStr(exitTime, true, actualEntry)
+      formData.set("entry_time", actualEntry.toISOString())
+      formData.set("exit_time", actualExit.toISOString())
+
+      const result = await createBooking(formData)
+
+      if (result.error) {
+        setError(result.error)
+        setIsSubmitting(false)
+        return
+      }
+
+      if (!result.bookingId) {
+        setError("Failed to create booking")
+        setIsSubmitting(false)
+        return
+      }
+
+      // Step 2: Create Stripe Checkout Session and redirect
+      const checkoutRes = await fetch("/api/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bookingId: result.bookingId }),
+      })
+
+      const checkoutData = await checkoutRes.json()
+
+      if (!checkoutRes.ok || !checkoutData.url) {
+        setError(checkoutData.error || "Failed to initiate payment")
+        setIsSubmitting(false)
+        return
+      }
+
+      // Step 3: Redirect to Stripe Checkout
+      window.location.href = checkoutData.url
+    } catch {
+      setError("Something went wrong. Please try again.")
+      setIsSubmitting(false)
+    }
   }
 
   const actualEntry = entryTime ? getDatetimeFromTimeStr(entryTime, false) : undefined
@@ -209,15 +248,12 @@ export default function BookingForm({
   const activeVehicleNumber =
     vehicleMode === "new" ? newVehicleNumber : selectedVehicleNumber
 
+  const vehicleNumber =
+    vehicleMode === "new" ? newVehicleNumber.trim() : selectedVehicleNumber
+  const isDisabled = isSubmitting || !!timeError || !selectedSlotId || !vehicleNumber || checkingSlots
+
   return (
-    // @ts-expect-error Next.js Server Actions with return types in form action
-    <form action={createBooking} onSubmit={handleSubmit}>
-      {/* Hidden inputs carrying processed values */}
-      <input type="hidden" name="vehicle_number" value={activeVehicleNumber.toUpperCase()} />
-      <input type="hidden" name="vehicle_id" value={vehicleMode === "existing" ? selectedVehicleId : ""} />
-      <input type="hidden" name="slot_id" value={String(selectedSlotId ?? "")} />
-      <input type="hidden" name="entry_time" value={actualEntry ? actualEntry.toISOString() : ""} />
-      <input type="hidden" name="exit_time" value={actualExit ? actualExit.toISOString() : ""} />
+    <form onSubmit={handleSubmit}>
       <div className="grid gap-5 lg:grid-cols-[1fr_300px]">
         {/* Left: Form sections */}
         <div className="space-y-5">
@@ -500,7 +536,23 @@ export default function BookingForm({
                 </div>
               )}
 
-              <SubmitButton />
+              <Button type="submit" className="w-full gap-2" disabled={isDisabled}>
+                {isSubmitting ? (
+                  <>
+                    <RiLoader4Line className="h-4 w-4 animate-spin" />
+                    Processing…
+                  </>
+                ) : (
+                  <>
+                    <RiBankCardLine className="h-4 w-4" />
+                    Confirm & Pay
+                  </>
+                )}
+              </Button>
+
+              <p className="text-center text-[11px] text-muted-foreground">
+                You will be redirected to Stripe for secure payment
+              </p>
             </CardContent>
           </Card>
         </div>

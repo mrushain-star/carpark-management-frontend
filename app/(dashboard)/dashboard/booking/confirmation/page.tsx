@@ -9,6 +9,7 @@ import {
   RiTimeLine,
   RiArrowLeftLine,
   RiCoinLine,
+  RiBankCardLine,
 } from "@remixicon/react"
 
 function formatDate(iso: string) {
@@ -51,6 +52,7 @@ export default async function ConfirmationPage({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const slotName = (booking as any).parking_slots?.slot_name || "—"
   const ref = booking.id.slice(0, 8).toUpperCase()
+  const isPaid = booking.payment_status === "paid"
 
   return (
     <div className="mx-auto max-w-md px-4 py-12">
@@ -64,6 +66,17 @@ export default async function ConfirmationPage({
           Your parking slot has been reserved
         </p>
       </div>
+
+      {/* Payment status badge */}
+      {isPaid && (
+        <div className="mb-6 flex items-center justify-center gap-2 rounded-lg border border-green-500/20 bg-green-500/5 px-4 py-2.5">
+          <RiBankCardLine className="h-4 w-4 text-green-600" />
+          <span className="text-sm font-medium text-green-600 dark:text-green-400">
+            Payment Successful
+          </span>
+          <RiCheckboxCircleLine className="h-4 w-4 text-green-600" />
+        </div>
+      )}
 
       {/* Ticket */}
       <div className="overflow-hidden border border-border shadow-lg">
@@ -158,7 +171,7 @@ export default async function ConfirmationPage({
             <div className="text-right">
               <div className="flex items-center justify-end gap-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                 <RiCoinLine className="h-3 w-3" />
-                Estimated Cost
+                {isPaid ? "Amount Paid" : "Estimated Cost"}
               </div>
               <p className="text-3xl font-black text-primary">
                 Rs.{" "}
@@ -170,9 +183,16 @@ export default async function ConfirmationPage({
 
         {/* Ticket footer */}
         <div className="border-t border-dashed border-border bg-muted/30 px-6 py-3 text-center">
-          <p className="text-[11px] text-muted-foreground">
-            Estimated cost at Rs. 200/hour · Final charges may vary
-          </p>
+          {isPaid ? (
+            <p className="flex items-center justify-center gap-1.5 text-[11px] text-green-600 dark:text-green-400">
+              <RiBankCardLine className="h-3 w-3" />
+              Paid securely via Stripe
+            </p>
+          ) : (
+            <p className="text-[11px] text-muted-foreground">
+              Estimated cost at Rs. 200/hour · Final charges may vary
+            </p>
+          )}
         </div>
       </div>
 
