@@ -11,17 +11,8 @@ import {
   RiCoinLine,
   RiBankCardLine,
 } from "@remixicon/react"
+import DateTimeDisplay from "@/components/DateTimeDisplay"
 
-function formatDate(iso: string) {
-  return new Date(iso).toLocaleString("en-US", {
-    weekday: "short",
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
 
 function formatDuration(hours: number) {
   const h = Math.floor(hours)
@@ -137,7 +128,19 @@ export default async function ConfirmationPage({
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   Entry
                 </p>
-                <p className="text-sm font-medium">{formatDate(booking.entry_time)}</p>
+                <p className="text-sm font-medium">
+                  <DateTimeDisplay 
+                    iso={booking.entry_time} 
+                    options={{
+                      weekday: "short",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }}
+                  />
+                </p>
               </div>
             </div>
             <div className="flex items-start gap-3">
@@ -148,7 +151,19 @@ export default async function ConfirmationPage({
                 <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">
                   Exit
                 </p>
-                <p className="text-sm font-medium">{formatDate(booking.exit_time)}</p>
+                <p className="text-sm font-medium">
+                  <DateTimeDisplay 
+                    iso={booking.exit_time} 
+                    options={{
+                      weekday: "short",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }}
+                  />
+                </p>
               </div>
             </div>
           </div>

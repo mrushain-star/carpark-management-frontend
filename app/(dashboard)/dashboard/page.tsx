@@ -12,6 +12,8 @@ import {
   RiCoinLine,
   RiBankCardLine,
 } from "@remixicon/react"
+import DateTimeDisplay from "@/components/DateTimeDisplay"
+
 
 type BookingWithSlot = {
   id: string
@@ -25,15 +27,6 @@ type BookingWithSlot = {
   parking_slots: { slot_name: string } | null
 }
 
-function formatDateTime(iso: string) {
-  return new Date(iso).toLocaleString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
-  })
-}
 
 function formatDuration(hours: number) {
   const h = Math.floor(hours)
@@ -137,8 +130,8 @@ export default async function DashboardPage() {
                           <div className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground">
                             <RiTimeLine className="h-3.5 w-3.5 shrink-0" />
                             <span className="truncate">
-                              {formatDateTime(booking.entry_time)} →{" "}
-                              {formatDateTime(booking.exit_time)}
+                              <DateTimeDisplay iso={booking.entry_time} /> →{" "}
+                              <DateTimeDisplay iso={booking.exit_time} />
                             </span>
                           </div>
                           <div className="mt-1 flex items-center gap-3 text-xs">
