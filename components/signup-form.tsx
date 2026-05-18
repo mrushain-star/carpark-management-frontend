@@ -27,7 +27,7 @@ export function SignupForm({
           <Input
             id="name"
             type="text"
-            placeholder="John Doe"
+            placeholder="Your Name"
             required
             className="bg-background"
           />
