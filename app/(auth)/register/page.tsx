@@ -89,7 +89,7 @@ export default function RegisterPage() {
                   id="name"
                   name="name"
                   type="text"
-                  placeholder="John Doe"
+                  placeholder="Your Name"
                   className="pl-9 text-foreground placeholder:text-muted-foreground"
                   required
                   autoComplete="name"
